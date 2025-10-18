@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nave Espacial</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            box-shadow: 0 0 30px rgba(0, 150, 255, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            background: #000;
+        }
+        
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            z-index: 20;
+        }
+        
+        #startScreen {
+            display: flex;
+        }
+        
+        #nameScreen, #gameOverScreen {
+            display: none;
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #00aaff;
+            text-shadow: 0 0 10px #00aaff;
+        }
+        
+        h2 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #ff3366;
+        }
+        
+        p {
+            font-size: 18px;
+            margin: 10px 0;
+            text-align: center;
+            max-width: 80%;
+        }
+        
+        .button {
+            background: #00aaff;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        
+        .button:hover {
+            background: #0088cc;
+            transform: scale(1.05);
+        }
+        
+        .name-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #00aaff;
+            border-radius: 25px;
+            padding: 12px 20px;
+            color: white;
+            font-size: 18px;
+            width: 300px;
+            text-align: center;
+            outline: none;
+            margin: 20px 0;
+        }
+        
+        .name-input:focus {
+            border-color: #00ffaa;
+        }
+        
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 16px;
+            z-index: 10;
+        }
+        
+        #score {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            font-size: 20px;
+            z-index: 10;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            align-items: center;
+        }
+        
+        .key {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <!-- Tela de Nome -->
+        <div id="nameScreen" class="screen">
+            <h1>NAVE ESPACIAL</h1>
+            <p>Digite seu nome para começar:</p>
+            <input type="text" id="playerNameInput" class="name-input" placeholder="Seu nome" maxlength="15">
+            <button class="button" id="startGameButton">JOGAR</button>
+        </div>
+        
+        <!-- Tela Inicial -->
+        <div id="startScreen" class="screen">
+            <h1>NAVE ESPACIAL</h1>
+            <p>Piloto: <span id="playerNameDisplay">---</span></p>
+            <p>Desvie dos inimigos e colete raios para atirar!</p>
+            
+            <div class="controls">
+                <div class="key">← → ↑ ↓</div>
+                <div>Mover</div>
+            </div>
+            
+            <div class="controls">
+                <div class="key">ESPAÇO</div>
+                <div>Atirar</div>
+            </div>
+            
+            <button class="button" id="playButton">INICIAR JOGO</button>
+            <button class="button" id="changeNameButton" style="background: #ffaa00;">INSIRA SEU NOME</button>
+        </div>
+        
+        <!-- Tela Game Over -->
+        <div id="gameOverScreen" class="screen">
+            <h2>GAME OVER</h2>
+            <p>Piloto: <span id="finalPlayerName">---</span></p>
+            <p>Pontuação: <span id="finalScore">0</span></p>
+            <button class="button" id="restartButton">JOGAR NOVAMENTE</button>
+            <button class="button" id="menuButton" style="background: #666;">VOLTAR AO MENU</button>
+        </div>
+        
+        <!-- HUD durante o jogo -->
+        <div id="hud">
+            <div>Vida: <span id="life">100</span>%</div>
+            <div>Poder: <span id="power">INATIVO</span></div>
+        </div>
+        
+        <div id="score">0</div>
+    </div>
+
+    <script>
+        // Elementos do DOM
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Telas
+        const nameScreen = document.getElementById('nameScreen');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        
+        // Botões
+        const startGameButton = document.getElementById('startGameButton');
+        const playButton = document.getElementById('playButton');
+        const changeNameButton = document.getElementById('changeNameButton');
+        const restartButton = document.getElementById('restartButton');
+        const menuButton = document.getElementById('menuButton');
+        
+        // Inputs e displays
+        const playerNameInput = document.getElementById('playerNameInput');
+        const playerNameDisplay = document.getElementById('playerNameDisplay');
+        const finalPlayerName = document.getElementById('finalPlayerName');
+        const finalScore = document.getElementById('finalScore');
+        const lifeDisplay = document.getElementById('life');
+        const powerDisplay = document.getElementById('power');
+        const scoreDisplay = document.getElementById('score');
+        
+        // Variáveis do jogo
+        let playerName = "";
+        let gameActive = false;
+        let keys = {};
+        
+        // Objetos do jogo
+        let player = {
+            x: 375, y: 500, width: 50, height: 50, speed: 5,
+            life: 100, canShoot: false, powerTimer: 0
+        };
+        
+        let enemies = [];
+        let powerUps = [];
+        let bullets = [];
+        let particles = [];
+        let stars = [];
+        
+        let score = 0;
+        let frames = 0;
+        
+        // Criar estrelas de fundo
+        function createStars() {
+            stars = [];
+            for (let i = 0; i < 100; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 1,
+                    speed: Math.random() * 0.5 + 0.1
+                });
+            }
+        }
+        
+        // Desenhar estrelas
+        function drawStars() {
+            ctx.fillStyle = '#ffffff';
+            for (let star of stars) {
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+                star.y += star.speed;
+                if (star.y > canvas.height) {
+                    star.y = 0;
+                    star.x = Math.random() * canvas.width;
+                }
+            }
+        }
+        
+        // Desenhar jogador
+        function drawPlayer() {
+            // Corpo da nave
+            ctx.fillStyle = '#2ecc71';
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width/2, player.y);
+            ctx.lineTo(player.x + player.width, player.y + player.height - 10);
+            ctx.lineTo(player.x, player.y + player.height - 10);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Cabine
+            ctx.fillStyle = '#3498db';
+            ctx.beginPath();
+            ctx.arc(player.x + player.width/2, player.y + 15, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Propulsores
+            if (frames % 10 < 5) {
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillRect(player.x + 10, player.y + player.height - 10, 10, 15);
+                ctx.fillRect(player.x + player.width - 20, player.y + player.height - 10, 10, 15);
+            }
+        }
+        
+        // Criar inimigo
+        function createEnemy() {
+            enemies.push({
+                x: Math.random() * (canvas.width - 40),
+                y: -40,
+                width: 40,
+                height: 40,
+                speed: Math.random() * 3 + 2
+            });
+        }
+        
+        // Desenhar inimigos
+        function drawEnemies() {
+            ctx.fillStyle = '#e74c3c';
+            for (let enemy of enemies) {
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                
+                // Detalhes do inimigo
+                ctx.fillStyle = '#c0392b';
+                ctx.beginPath();
+                ctx.arc(enemy.x + enemy.width/2, enemy.y + enemy.height/2, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#e74c3c';
+            }
+        }
+        
+        // Criar power-up
+        function createPowerUp() {
+            powerUps.push({
+                x: Math.random() * (canvas.width - 30),
+                y: -30,
+                width: 30,
+                height: 30,
+                speed: Math.random() * 2 + 1
+            });
+        }
+        
+        // Desenhar power-ups
+        function drawPowerUps() {
+            ctx.fillStyle = '#f1c40f';
+            for (let powerUp of powerUps) {
+                // Raio
+                ctx.beginPath();
+                ctx.moveTo(powerUp.x + powerUp.width/2, powerUp.y);
+                ctx.lineTo(powerUp.x + powerUp.width, powerUp.y + powerUp.height/2);
+                ctx.lineTo(powerUp.x + powerUp.width/2, powerUp.y + powerUp.height);
+                ctx.lineTo(powerUp.x, powerUp.y + powerUp.height/2);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Brilho
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.beginPath();
+                ctx.arc(powerUp.x + powerUp.width/2, powerUp.y + powerUp.height/2, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#f1c40f';
+            }
+        }
+        
+        // Criar bala
+        function createBullet() {
+            if (player.canShoot) {
+                bullets.push({
+                    x: player.x + player.width/2 - 2,
+                    y: player.y,
+                    width: 4,
+                    height: 10,
+                    speed: 8
+                });
+            }
+        }
+        
+        // Desenhar balas
+        function drawBullets() {
+            ctx.fillStyle = '#e74c3c';
+            for (let bullet of bullets) {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            }
+        }
+        
+        // Verificar colisão
+        function checkCollision(obj1, obj2) {
+            return obj1.x < obj2.x + obj2.width &&
+                   obj1.x + obj1.width > obj2.x &&
+                   obj1.y < obj2.y + obj2.height &&
+                   obj1.y + obj1.height > obj2.y;
+        }
+        
+        // Criar partículas de explosão
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    size: Math.random() * 4 + 2,
+                    speedX: Math.random() * 6 - 3,
+                    speedY: Math.random() * 6 - 3,
+                    color: color,
+                    life: 1
+                });
+            }
+        }
+        
+        // Desenhar partículas
+        function drawParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                p.x += p.speedX;
+                p.y += p.speedY;
+                p.life -= 0.02;
+                
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+        
+        // Atualizar HUD
+        function updateHUD() {
+            lifeDisplay.textContent = player.life;
+            scoreDisplay.textContent = score;
+            powerDisplay.textContent = player.canShoot ? "ATIVO" : "INATIVO";
+            powerDisplay.style.color = player.canShoot ? "#2ecc71" : "#e74c3c";
+        }
+        
+        // Loop principal do jogo
+        function gameLoop() {
+            if (!gameActive) return;
+            
+            frames++;
+            
+            // Limpar canvas
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Desenhar fundo
+            drawStars();
+            
+            // Movimentar jogador
+            if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) player.x += player.speed;
+            if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
+            if (keys['ArrowDown'] && player.y < canvas.height - player.height) player.y += player.speed;
+            
+            // Atirar
+            if (keys[' '] && player.canShoot && frames % 10 === 0) {
+                createBullet();
+            }
+            
+            // Gerar inimigos
+            if (frames % 60 === 0) {
+                createEnemy();
+            }
+            
+            // Gerar power-ups
+            if (frames % 180 === 0) {
+                createPowerUp();
+            }
+            
+            // Atualizar power do jogador
+            if (player.canShoot) {
+                player.powerTimer--;
+                if (player.powerTimer <= 0) {
+                    player.canShoot = false;
+                }
+            }
+            
+            // Atualizar inimigos
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                enemy.y += enemy.speed;
+                
+                // Remover inimigos que saíram da tela
+                if (enemy.y > canvas.height) {
+                    enemies.splice(i, 1);
+                    score += 5;
+                    continue;
+                }
+                
+                // Colisão com jogador
+                if (checkCollision(player, enemy)) {
+                    player.life -= 10;
+                    createExplosion(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#e74c3c');
+                    enemies.splice(i, 1);
+                    if (player.life <= 0) {
+                        gameOver();
+                        return;
+                    }
+                }
+                
+                // Colisão com balas
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    if (checkCollision(bullets[j], enemy)) {
+                        createExplosion(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#f39c12');
+                        enemies.splice(i, 1);
+                        bullets.splice(j, 1);
+                        score += 20;
+                        break;
+                    }
+                }
+            }
+            
+            // Atualizar power-ups
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                const powerUp = powerUps[i];
+                powerUp.y += powerUp.speed;
+                
+                if (powerUp.y > canvas.height) {
+                    powerUps.splice(i, 1);
+                    continue;
+                }
+                
+                // Colisão com jogador
+                if (checkCollision(player, powerUp)) {
+                    player.canShoot = true;
+                    player.powerTimer = 300;
+                    createExplosion(powerUp.x + powerUp.width/2, powerUp.y + powerUp.height/2, '#f1c40f');
+                    powerUps.splice(i, 1);
+                }
+            }
+            
+            // Atualizar balas
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= bullets[i].speed;
+                if (bullets[i].y < 0) {
+                    bullets.splice(i, 1);
+                }
+            }
+            
+            // Desenhar tudo
+            drawPlayer();
+            drawEnemies();
+            drawPowerUps();
+            drawBullets();
+            drawParticles();
+            
+            // Atualizar HUD
+            updateHUD();
+            
+            // Continuar loop
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Iniciar jogo
+        function startGame() {
+            if (!playerName) {
+                alert("Por favor, digite seu nome!");
+                return;
+            }
+            
+            // Resetar jogo
+            player = { x: 375, y: 500, width: 50, height: 50, speed: 5, life: 100, canShoot: false, powerTimer: 0 };
+            enemies = [];
+            powerUps = [];
+            bullets = [];
+            particles = [];
+            score = 0;
+            frames = 0;
+            
+            createStars();
+            gameActive = true;
+            startScreen.style.display = 'none';
+            
+            // Iniciar loop
+            gameLoop();
+        }
+        
+        // Game over
+        function gameOver() {
+            gameActive = false;
+            finalPlayerName.textContent = playerName;
+            finalScore.textContent = score;
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // Event Listeners
+        startGameButton.addEventListener('click', function() {
+            playerName = playerNameInput.value.trim() || "Piloto";
+            playerNameDisplay.textContent = playerName;
+            nameScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        });
+        
+        playButton.addEventListener('click', startGame);
+        
+        changeNameButton.addEventListener('click', function() {
+            startScreen.style.display = 'none';
+            nameScreen.style.display = 'flex';
+        });
+        
+        restartButton.addEventListener('click', startGame);
+        
+        menuButton.addEventListener('click', function() {
+            gameOverScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        });
+        
+        // Controles de teclado
+        document.addEventListener('keydown', function(e) {
+            keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', function(e) {
+            keys[e.key] = false;
+        });
+        
+        // Enter para confirmar nome
+        playerNameInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                startGameButton.click();
+            }
+        });
+        
+        // Espaço para atirar (prevenir scroll)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === ' ' && gameActive) {
+                e.preventDefault();
+            }
+        });
+        
+        // Inicializar
+        createStars();
+        console.log("Jogo carregado! Digite seu nome para começar.");
+    </script>
+</body>
+</html>
