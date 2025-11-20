@@ -51,11 +51,11 @@
         }
         
         #startScreen {
-            display: flex;
+            display: none; /* COMEÇA OCULTA */
         }
         
         #nameScreen, #gameOverScreen {
-            display: none;
+            display: none; /* Serão controladas pelo JS na inicialização */
         }
         
         h1 {
@@ -149,7 +149,6 @@
     <div id="gameContainer">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         
-        <!-- Tela de Nome -->
         <div id="nameScreen" class="screen">
             <h1>NAVE ESPACIAL</h1>
             <p>Digite seu nome para começar:</p>
@@ -157,7 +156,6 @@
             <button class="button" id="startGameButton">JOGAR</button>
         </div>
         
-        <!-- Tela Inicial -->
         <div id="startScreen" class="screen">
             <h1>NAVE ESPACIAL</h1>
             <p>Piloto: <span id="playerNameDisplay">---</span></p>
@@ -174,10 +172,9 @@
             </div>
             
             <button class="button" id="playButton">INICIAR JOGO</button>
-            <button class="button" id="changeNameButton" style="background: #ffaa00;">INSIRA SEU NOME</button>
+            <button class="button" id="changeNameButton" style="background: #ffaa00;">ALTERAR NOME</button>
         </div>
         
-        <!-- Tela Game Over -->
         <div id="gameOverScreen" class="screen">
             <h2>GAME OVER</h2>
             <p>Piloto: <span id="finalPlayerName">---</span></p>
@@ -186,7 +183,6 @@
             <button class="button" id="menuButton" style="background: #666;">VOLTAR AO MENU</button>
         </div>
         
-        <!-- HUD durante o jogo -->
         <div id="hud">
             <div>Vida: <span id="life">100</span>%</div>
             <div>Poder: <span id="power">INATIVO</span></div>
@@ -240,6 +236,9 @@
         
         let score = 0;
         let frames = 0;
+
+        // Variável para controlar a velocidade base dos inimigos
+        let enemyBaseSpeed = 3; 
         
         // Criar estrelas de fundo
         function createStars() {
@@ -267,39 +266,104 @@
             }
         }
         
-        // Desenhar jogador
+        // Desenhar jogador (Versão Realista com Mudança de Cor)
         function drawPlayer() {
-            // Corpo da nave
-            ctx.fillStyle = '#2ecc71';
+            const p = player;
+            const halfW = p.width / 2;
+            const center = p.x + halfW;
+            const tailY = p.y + p.height;
+            
+            // --- Lógica de Mudança de Cor (Fase) ---
+            let colorStart = '#555566'; // Cor Padrão (Prata/Cinza)
+            let colorCenter = '#bbbbcc';
+
+            if (score >= 200) {
+                // Fase 2: Nave Vermelha de Combate
+                colorStart = '#662222'; 
+                colorCenter = '#cc4444';
+            }
+            if (score >= 500) {
+                // Fase 3: Nave Azul Elite
+                colorStart = '#222266'; 
+                colorCenter = '#4444cc';
+            }
+            if (score >= 1000) {
+                // Fase 4: Nave Dourada/Ouro
+                colorStart = '#aa8833'; 
+                colorCenter = '#ffcc66';
+            }
+
+            // --- Corpo Principal da Nave (Com Gradiente Dinâmico) ---
+            const bodyGradient = ctx.createLinearGradient(p.x, p.y, p.x + p.width, p.y);
+            bodyGradient.addColorStop(0, colorStart); // Lado Escuro
+            bodyGradient.addColorStop(0.5, colorCenter); // Centro Claro (Brilho)
+            bodyGradient.addColorStop(1, colorStart); // Lado Escuro
+            
+            ctx.fillStyle = bodyGradient;
             ctx.beginPath();
-            ctx.moveTo(player.x + player.width/2, player.y);
-            ctx.lineTo(player.x + player.width, player.y + player.height - 10);
-            ctx.lineTo(player.x, player.y + player.height - 10);
+            // Ponta
+            ctx.moveTo(center, p.y);
+            // Asas/Corpo (mais largo e menos triangular)
+            ctx.lineTo(p.x - 5, p.y + p.height - 20); // Asa esquerda (um pouco para fora)
+            ctx.lineTo(p.x, tailY - 10);
+            ctx.lineTo(p.x + p.width, tailY - 10);
+            ctx.lineTo(p.x + p.width + 5, p.y + p.height - 20); // Asa direita (um pouco para fora)
+            ctx.lineTo(center, p.y);
             ctx.closePath();
             ctx.fill();
-            
-            // Cabine
-            ctx.fillStyle = '#3498db';
+
+            // --- Cabine de Comando (Azul/Vidro) ---
+            ctx.fillStyle = 'rgba(0, 150, 255, 0.8)'; // Vidro azulado
             ctx.beginPath();
-            ctx.arc(player.x + player.width/2, player.y + 15, 10, 0, Math.PI * 2);
+            ctx.ellipse(center, p.y + 15, 12, 8, 0, 0, Math.PI * 2);
             ctx.fill();
-            
-            // Propulsores
-            if (frames % 10 < 5) {
-                ctx.fillStyle = '#e74c3c';
-                ctx.fillRect(player.x + 10, player.y + player.height - 10, 10, 15);
-                ctx.fillRect(player.x + player.width - 20, player.y + player.height - 10, 10, 15);
+
+            // Adicionar um brilho reflexo na cabine
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.arc(center - 4, p.y + 12, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // --- Propulsores (Efeito de Fogo/Plasma) ---
+            // Desenhar a base dos propulsores
+            ctx.fillStyle = '#333333';
+            ctx.fillRect(p.x + 5, tailY - 15, 15, 5);
+            ctx.fillRect(p.x + p.width - 20, tailY - 15, 15, 5);
+
+            // Desenhar o fogo/plasma
+            if (frames % 6 < 3) {
+                // Plasma interno (mais claro)
+                ctx.fillStyle = '#f1c40f'; // Amarelo
+                ctx.beginPath();
+                ctx.moveTo(p.x + 10, tailY - 10);
+                ctx.lineTo(p.x + 15, tailY + 5);
+                ctx.lineTo(p.x + 5, tailY + 5);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(p.x + p.width - 10, tailY - 10);
+                ctx.lineTo(p.x + p.width - 5, tailY + 5);
+                ctx.lineTo(p.x + p.width - 15, tailY + 5);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Fogo externo (mais escuro e longo)
+                ctx.fillStyle = '#e74c3c'; // Vermelho
+                ctx.fillRect(p.x + 5, tailY - 10, 10, 15);
+                ctx.fillRect(p.x + p.width - 15, tailY - 10, 10, 15);
             }
         }
         
         // Criar inimigo
         function createEnemy() {
+            // A velocidade do inimigo agora usa a variável enemyBaseSpeed
             enemies.push({
                 x: Math.random() * (canvas.width - 40),
                 y: -40,
                 width: 40,
                 height: 40,
-                speed: Math.random() * 3 + 2
+                speed: Math.random() * enemyBaseSpeed + (enemyBaseSpeed - 1.5) // Ajuste para manter variação
             });
         }
         
@@ -351,25 +415,38 @@
             }
         }
         
-        // Criar bala
+        // Criar bala (Tiro Mais Potente)
         function createBullet() {
             if (player.canShoot) {
                 bullets.push({
-                    x: player.x + player.width/2 - 2,
+                    // Tiro maior (8px de largura)
+                    x: player.x + player.width/2 - 4, 
                     y: player.y,
-                    width: 4,
-                    height: 10,
-                    speed: 8
+                    width: 8, 
+                    height: 15,
+                    speed: 10 // Tiro mais rápido
                 });
             }
         }
         
-        // Desenhar balas
+        // Desenhar balas (Efeito Visual de Plasma)
         function drawBullets() {
-            ctx.fillStyle = '#e74c3c';
+            ctx.fillStyle = '#ffaa00'; // Cor Laranja/Amarela para o centro
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ff4400'; // Sombra Vermelha para o efeito de plasma
+            
             for (let bullet of bullets) {
+                // Desenha a parte principal do tiro
                 ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+
+                // Desenha uma ponta mais clara (brilho)
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, 3);
             }
+
+            // Resetar as propriedades de sombra do canvas para não afetar outros objetos
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
         }
         
         // Verificar colisão
@@ -424,6 +501,19 @@
             powerDisplay.style.color = player.canShoot ? "#2ecc71" : "#e74c3c";
         }
         
+        // Função para ajustar a dificuldade
+        function updateDifficulty() {
+            if (score < 200) {
+                enemyBaseSpeed = 3; 
+            } else if (score < 500) {
+                enemyBaseSpeed = 3.5;
+            } else if (score < 1000) {
+                enemyBaseSpeed = 4;
+            } else {
+                enemyBaseSpeed = 5;
+            }
+        }
+
         // Loop principal do jogo
         function gameLoop() {
             if (!gameActive) return;
@@ -436,10 +526,13 @@
             
             // Desenhar fundo
             drawStars();
+
+            // Atualizar dificuldade baseada na pontuação
+            updateDifficulty();
             
             // Movimentar jogador
-            if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
-            if (keys['ArrowRight'] && player.x < canvas.width - player.width) player.x += player.speed;
+            if (keys['ArrowLeft'] && player.x > -5) player.x -= player.speed;
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width + 5) player.x += player.speed;
             if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
             if (keys['ArrowDown'] && player.y < canvas.height - player.height) player.y += player.speed;
             
@@ -474,7 +567,7 @@
                 // Remover inimigos que saíram da tela
                 if (enemy.y > canvas.height) {
                     enemies.splice(i, 1);
-                    score += 5;
+                    score += 5; 
                     continue;
                 }
                 
@@ -514,7 +607,7 @@
                 // Colisão com jogador
                 if (checkCollision(player, powerUp)) {
                     player.canShoot = true;
-                    player.powerTimer = 300;
+                    player.powerTimer = 300; // 5 segundos de poder (300 frames a 60 FPS)
                     createExplosion(powerUp.x + powerUp.width/2, powerUp.y + powerUp.height/2, '#f1c40f');
                     powerUps.splice(i, 1);
                 }
@@ -544,10 +637,7 @@
         
         // Iniciar jogo
         function startGame() {
-            if (!playerName) {
-                alert("Por favor, digite seu nome!");
-                return;
-            }
+            // Este ponto é alcançado apenas se o nome já foi validado na tela de nome
             
             // Resetar jogo
             player = { x: 375, y: 500, width: 50, height: 50, speed: 5, life: 100, canShoot: false, powerTimer: 0 };
@@ -557,10 +647,12 @@
             particles = [];
             score = 0;
             frames = 0;
+            enemyBaseSpeed = 3; // Redefinir velocidade inicial
             
             createStars();
             gameActive = true;
             startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
             
             // Iniciar loop
             gameLoop();
@@ -575,11 +667,21 @@
         }
         
         // Event Listeners
+        
+        // Validação e passagem da tela de nome para o menu
         startGameButton.addEventListener('click', function() {
-            playerName = playerNameInput.value.trim() || "Piloto";
-            playerNameDisplay.textContent = playerName;
-            nameScreen.style.display = 'none';
-            startScreen.style.display = 'flex';
+            let tempName = playerNameInput.value.trim();
+
+            if (tempName.length > 0) {
+                playerName = tempName;
+                playerNameDisplay.textContent = playerName;
+                
+                nameScreen.style.display = 'none';
+                startScreen.style.display = 'flex';
+            } else {
+                alert("Por favor, digite um nome de piloto para começar!");
+                playerNameInput.focus();
+            }
         });
         
         playButton.addEventListener('click', startGame);
@@ -587,6 +689,7 @@
         changeNameButton.addEventListener('click', function() {
             startScreen.style.display = 'none';
             nameScreen.style.display = 'flex';
+            playerNameInput.focus();
         });
         
         restartButton.addEventListener('click', startGame);
@@ -619,9 +722,16 @@
             }
         });
         
-        // Inicializar
-        createStars();
-        console.log("Jogo carregado! Digite seu nome para começar.");
+        // Inicialização: Garante que a tela de nome seja a primeira
+        document.addEventListener('DOMContentLoaded', function() {
+            // Oculta todas as telas exceto a de nome no carregamento
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            nameScreen.style.display = 'flex'; 
+            playerNameInput.focus();
+            createStars(); // Cria as estrelas no fundo
+            console.log("Jogo carregado! Digite seu nome para começar.");
+        });
     </script>
 </body>
 </html>
