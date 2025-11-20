@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nave Espacial</title>
     <style>
+        /* [ ... CÓDIGO CSS (STYLE) PERMANECE O MESMO ... ] */
         * {
             margin: 0;
             padding: 0;
@@ -191,6 +192,9 @@
         <div id="score">0</div>
     </div>
 
+    <audio id="laserSound" src="laser_shot.mp3" preload="auto"></audio>
+    <audio id="explosionSound" src="explosion.mp3" preload="auto"></audio>
+
     <script>
         // Elementos do DOM
         const canvas = document.getElementById('gameCanvas');
@@ -200,6 +204,10 @@
         const nameScreen = document.getElementById('nameScreen');
         const startScreen = document.getElementById('startScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
+
+        // Áudio (NOVAS REFERÊNCIAS)
+        const laserSound = document.getElementById('laserSound'); 
+        const explosionSound = document.getElementById('explosionSound');
         
         // Botões
         const startGameButton = document.getElementById('startGameButton');
@@ -240,6 +248,19 @@
         // Variável para controlar a velocidade base dos inimigos
         let enemyBaseSpeed = 3; 
         
+        // Funções de Áudio
+        function playLaser() {
+            laserSound.currentTime = 0; // Reinicia o áudio
+            laserSound.play();
+        }
+
+        function playExplosion() {
+            explosionSound.currentTime = 0; // Reinicia o áudio
+            // Adiciona um pequeno ajuste de volume (opcional)
+            explosionSound.volume = 0.5; 
+            explosionSound.play();
+        }
+
         // Criar estrelas de fundo
         function createStars() {
             stars = [];
@@ -426,6 +447,9 @@
                     height: 15,
                     speed: 10 // Tiro mais rápido
                 });
+                
+                // TOCA O SOM DO TIRO
+                playLaser();
             }
         }
         
@@ -575,6 +599,7 @@
                 if (checkCollision(player, enemy)) {
                     player.life -= 10;
                     createExplosion(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#e74c3c');
+                    playExplosion(); // TOCA SOM DE EXPLOSÃO
                     enemies.splice(i, 1);
                     if (player.life <= 0) {
                         gameOver();
@@ -586,6 +611,7 @@
                 for (let j = bullets.length - 1; j >= 0; j--) {
                     if (checkCollision(bullets[j], enemy)) {
                         createExplosion(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#f39c12');
+                        playExplosion(); // TOCA SOM DE EXPLOSÃO
                         enemies.splice(i, 1);
                         bullets.splice(j, 1);
                         score += 20;
@@ -609,6 +635,7 @@
                     player.canShoot = true;
                     player.powerTimer = 300; // 5 segundos de poder (300 frames a 60 FPS)
                     createExplosion(powerUp.x + powerUp.width/2, powerUp.y + powerUp.height/2, '#f1c40f');
+                    // Não tocamos explosão aqui, só um som de coleta (se tivéssemos)
                     powerUps.splice(i, 1);
                 }
             }
